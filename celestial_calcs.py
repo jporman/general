@@ -242,19 +242,19 @@ def eq_to_altaz(HA_deg, dec_deg, lat, north_south):
 
 
 
-# 1. convert alt-az to equatorial
-alt = "10deg 00m 00s"
-az = "200deg 10m 20s"
-alt = dec_to_degrees(alt)
-az = dec_to_degrees(az)
+# 1. convert ha and dec to degrees
+ha = "7h 00m 00s"
+dec = "49deg 54m 20s"
+ha = HA_to_degrees(ha)
+dec = dec_to_degrees(dec)
 
-#2. convert alt az degrees to equatorial coords
-eq_coords = altaz_to_eq(alt, az, 35.6, 'N')
-dec = eq_coords['declination']
-ha = eq_coords['hour_angle']
+# 2. convert to altaz
+eq_coords = eq_to_altaz(ha, dec, 80, 'S')
+alt = eq_coords['altitude']
+az = eq_coords['azimuth']
 
-print(f'Dec: {dec}')
-print(f'HA: {ha}')
+print(f'alt: {alt}')
+print(f'azimuth: {az}')
 
 
 
