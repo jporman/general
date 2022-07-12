@@ -1,5 +1,5 @@
 #!Python3
-# astro_time - a module to carry out astronomical time conversions
+# celestial_calcs - a module to carry out astronomical time conversions
 
 import datetime as dt
 import dateutil as du
@@ -240,16 +240,21 @@ def eq_to_altaz(HA_deg, dec_deg, lat, north_south):
     altaz_coords = {'altitude': h, 'azimuth': A}
     return altaz_coords
 
-# RA = LST - HA
-# LST = GST + Adj
-# GST = UT_to_GST()
 
-GST = UT_to_GST(dt.datetime(1976,6,5,14,00,00))
-LST = GST_to_LST(GST, '64 W')
-RA = LST - dt.timedelta(hours = 15, minutes = 30, seconds = 15)
 
-print(f'LST: {LST}')
-print(f'RA: {RA}')
+# 1. convert alt-az to equatorial
+alt = "10deg 00m 00s"
+az = "200deg 10m 20s"
+alt = dec_to_degrees(alt)
+az = dec_to_degrees(az)
+
+#2. convert alt az degrees to equatorial coords
+eq_coords = altaz_to_eq(alt, az, 35.6, 'N')
+dec = eq_coords['declination']
+ha = eq_coords['hour_angle']
+
+print(f'Dec: {dec}')
+print(f'HA: {ha}')
 
 
 
