@@ -245,9 +245,9 @@ def obliquity_of_ecliptic(year, month = 1, day = 1, hour = 0, minute = 0, second
     being calculated. Return decimal for ease of use in other calculations"""
     standard_epoch = dt.datetime(year, month, day, hour, minute, second)
     julian_day = date_to_JD(standard_epoch)
-    julian_centures = (julian_day - 2_451_545.0)/36_525 # Nbr julian centures since 1/0.5/2000
-    De = 46.815*julian_centures + 0.000_6*julian_centures**2 \
-        - 0.001_81*julian_centures**3
+    julian_centuries = (julian_day - 2_451_545.0)/36_525 # Nbr julian centures since 1/0.5/2000
+    De = 46.815*julian_centuries + 0.000_6*julian_centuries**2 \
+        - 0.001_81*julian_centuries**3
     epsilon_zero = 23.439292 # equal to obliquity of ecliptic at 1/0.0/2000, or 23deg 26' 21.45"
     epsilon = epsilon_zero - De/3600
     return epsilon
