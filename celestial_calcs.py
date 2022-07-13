@@ -29,7 +29,7 @@ def HA_to_degrees(HA):
     degrees = float(hours) * 15 + float(minutes)/4 + float(seconds)/240
     return degrees
 
-def dec_to_degrees(dec):
+def degMS_to_degrees(dec):
     degMS_regex = re.compile(r'(-?)(\d\d?\d?)(deg|°|\*)(\s?)(\d\d?)(m?|\'?)(\s?)(\d\d?\.?\d*)(s?|\"/)(\s?)')
     degMS = degMS_regex.search(dec)
     degrees = degMS[2]
@@ -82,7 +82,7 @@ def date_to_JD(ut_date):
         T = 0
     
     #Step 3/4
-    if ut_date.date() >= dt.date(1582, 10, 15):
+    if ut_date >= dt.datetime(1582, 10, 15, 0, 0, 0):
         A = np.fix(y/100)
         B = 2 - A + np.fix(A/4)
     else:
@@ -240,22 +240,61 @@ def eq_to_altaz(HA_deg, dec_deg, lat, north_south):
     altaz_coords = {'altitude': h, 'azimuth': A}
     return altaz_coords
 
+def obliquity_of_ecliptic(year, month = 1, day = 1, hour = 0, minute = 0, second = 0):
+    """Must pass at least the year of the epoch for which ecliptic is
+    being calculated. Return decimal for ease of use in other calculations"""
+    standard_epoch = dt.datetime(year, month, day, hour, minute, second)
+    julian_day = date_to_JD(standard_epoch)
+    julian_centures = (julian_day - 2_451_545.0)/36_525 # Nbr julian centures since 1/0.5/2000
+    De = 46.815*julian_centures + 0.000_6*julian_centures**2 \
+        - 0.001_81*julian_centures**3
+    epsilon_zero = 23.439292 # equal to obliquity of ecliptic at 1/0.0/2000, or 23deg 26' 21.45"
+    epsilon = epsilon_zero - De/3600
+    return epsilon
 
+def ecliptic_to_equatorial(epoch = 2000, ecliptic_lat = '0deg 0m 0s', ecliptic_long = '0deg 0m 0s'):
+    epsilon = obliquity_of_ecliptic(2000)
+    beta_var = degMS_to_degrees(ecliptic_lat)
+    lambda_var = degMS_to_degrees(ecliptic_long)
 
-# 1. convert ha and dec to degrees
-ha = "7h 00m 00s"
-dec = "49deg 54m 20s"
-ha = HA_to_degrees(ha)
-dec = dec_to_degrees(dec)
+    # Convert to radians
+    epsilon_rad = epsilon/360*(2*math.pi)
+    beta_var_rad = beta_var/360*(2*math.pi)
+    lambda_var_rad = lambda_var/360*(2*math.pi)
+    
+    # Calc declination
+    T = math.sin(beta_var_rad)*math.cos(epsilon_rad) + math.cos(beta_var_rad)*math.sin(epsilon_rad)*math.sin(lambda_var_rad)
+    declination = math.asin(T)
+    declination = declination/(2*math.pi)*360
 
-# 2. convert to altaz
-eq_coords = eq_to_altaz(ha, dec, 80, 'S')
-alt = eq_coords['altitude']
-az = eq_coords['azimuth']
+    # Calc right ascension
+    y = math.sin(lambda_var_rad)*math.cos(epsilon_rad) - math.tan(beta_var_rad)*math.sin(epsilon_rad)
+    x = math.cos(lambda_var_rad)
+    right_ascension = math.atan(y/x)
+    quad_adj = 0
+    if y>0 and x>0: 
+        quad_adj += 0 
+    elif y>0 and x<0: 
+        quad_adj += math.pi
+    elif y<0 and x>0: 
+        quad_adj += 2*math.pi 
+    elif y<0 and x<0: 
+        quad_adj += math.pi
+    right_ascension += quad_adj
+    right_ascension = right_ascension/(2*math.pi)*360
 
-print(f'alt: {alt}')
-print(f'azimuth: {az}')
+    # Convert to HA or degrees_MS format
+    declination = degrees_to_degreesMS(declination)
+    right_ascension = degrees_to_HA(right_ascension)
+    equatorial_coords = {'declination': declination, 'right_ascension': right_ascension}
 
+    return equatorial_coords
+
+equatorial_coords = ecliptic_to_equatorial(epoch = 2000, \
+    ecliptic_lat = '1deg 12m 00s', ecliptic_long = '184deg 36m 00s')
+
+print('Right Ascension: ', equatorial_coords['right_ascension'], '\n'\
+    'Declination: ', equatorial_coords['declination'])
 
 
 
