@@ -327,7 +327,9 @@ def equatorial_to_ecliptic(epoch = 2000, right_ascension = '0h0m0s', declination
 
     return ecliptic_coords
 
-
+###########################################
+#---------------MAIN SCRIPT---------------#
+###########################################
 
 ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
     right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
