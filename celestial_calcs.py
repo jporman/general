@@ -12,7 +12,8 @@ def degrees_to_degreesMS(degrees):
     fix_degrees = int(np.fix(degrees))
     minutes = int(np.fix((degrees - fix_degrees) * 60))
     seconds = round((degrees - fix_degrees - minutes / 60) * 3600)
-    return str(fix_degrees)+'° '+str(minutes)+ "' " + str(seconds)+'"'
+    plus_minus = '-' if (fix_degrees == 0 and degrees < 0) else ''
+    return plus_minus+str(fix_degrees)+'° '+str(abs(minutes))+ "' " + str(abs(seconds))+'"'
 
 def degrees_to_HA(degrees):
     hour = int(np.fix(degrees/15))
@@ -290,11 +291,53 @@ def ecliptic_to_equatorial(epoch = 2000, ecliptic_lat = '0deg 0m 0s', ecliptic_l
 
     return equatorial_coords
 
-equatorial_coords = ecliptic_to_equatorial(epoch = 2000, \
-    ecliptic_lat = '1deg 12m 00s', ecliptic_long = '184deg 36m 00s')
+def equatorial_to_ecliptic(epoch = 2000, right_ascension = '0h0m0s', declination='0deg0m0s'):
+    """Pass RA in hms format and declination in degMS"""
+    epsilon = obliquity_of_ecliptic(epoch)
+    epsilon_rads = epsilon/360*2*math.pi
+    ra = HA_to_degrees(right_ascension)
+    ra_rads = ra/360*2*math.pi
+    dec = degMS_to_degrees(declination)
+    dec_rads = dec/360*2*math.pi
 
-print('Right Ascension: ', equatorial_coords['right_ascension'], '\n'\
-    'Declination: ', equatorial_coords['declination'])
+    T_var = math.sin(dec_rads) * math.cos(epsilon_rads) - math.cos(dec_rads) * math.sin(epsilon_rads) * math.sin(ra_rads)
+    ecliptic_long = math.asin(T_var)
+    ecliptic_long = ecliptic_long/(2*math.pi)*360
+
+    y = math.sin(ra_rads) * math.cos(epsilon_rads) + math.tan(dec_rads)*math.sin(epsilon_rads)
+    x = math.cos(ra_rads)
+    ecliptic_lat = math.atan(y / x)
+    quad_adj = 0
+    if y>0 and x>0: 
+        quad_adj += 0 
+    elif y>0 and x<0: 
+        quad_adj += math.pi
+    elif y<0 and x>0: 
+        quad_adj += 2*math.pi 
+    elif y<0 and x<0: 
+        quad_adj += math.pi
+    ecliptic_lat += quad_adj
+    ecliptic_lat = ecliptic_lat/(2*math.pi)*360
+
+    # Convert to degMS format
+    ecliptic_long = degrees_to_degreesMS(ecliptic_long)
+    ecliptic_lat = degrees_to_degreesMS(ecliptic_lat)
+
+    ecliptic_coords = {'ecliptic longitude': ecliptic_long, 'ecliptic latitude': ecliptic_lat, 'epoch': epoch}
+
+    return ecliptic_coords
 
 
+
+ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
+    right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
+
+print('Ecliptic longitude: ', ecliptic_coords['ecliptic longitude'], '\n'\
+    'Ecliptic latitude: ', ecliptic_coords['ecliptic latitude'])
+
+# eq_coords = ecliptic_to_equatorial(epoch = 2000, \
+#     ecliptic_long = '120deg 30m 30s', ecliptic_lat = '0deg 00m 00s')
+
+# print('Right ascension: ', eq_coords['right_ascension'], '\n'\
+#     'Declination: ', eq_coords['declination'])
 
