@@ -254,7 +254,7 @@ def obliquity_of_ecliptic(year, month = 1, day = 1, hour = 0, minute = 0, second
     return epsilon
 
 def ecliptic_to_equatorial(epoch = 2000, ecliptic_lat = '0deg 0m 0s', ecliptic_long = '0deg 0m 0s'):
-    epsilon = obliquity_of_ecliptic(2000)
+    epsilon = obliquity_of_ecliptic(epoch)
     beta_var = degMS_to_degrees(ecliptic_lat)
     lambda_var = degMS_to_degrees(ecliptic_long)
 
@@ -327,19 +327,131 @@ def equatorial_to_ecliptic(epoch = 2000, right_ascension = '0h0m0s', declination
 
     return ecliptic_coords
 
+def galactic_to_equatorial(galactic_lat = 0, galactic_long = 0, epoch= 1950):
+    """Convertes 1950 or J2000 epoch galactic coords to equatorial coordinates"""
+    if epoch == 1950:
+        gnp_RA_rad = 192.25 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.4 / 360 * 2 * math.pi
+        N_zero = 33 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+    elif epoch == 2000:
+        gnp_RA_rad = 192.8598 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.128027 / 360 * 2 * math.pi
+        N_zero = 32.9319 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+    else:
+        print('Invalid epoch entered, using 1950 epoch')
+        gnp_RA_rad = 192.25 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.4 / 360 * 2 * math.pi
+        N_zero = 33 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+    
+    
+    galactic_lat = degMS_to_degrees(galactic_lat)
+    galactic_long = degMS_to_degrees(galactic_long)
+    galactic_lat_rad = galactic_lat / 360 * 2 * math.pi
+    galactic_long_rad = galactic_long / 360 * 2 * math.pi
+
+    T = math.cos(galactic_lat_rad)*math.cos(gnp_dec_rad)*math.sin(galactic_long_rad - N_zero) \
+        + math.sin(galactic_lat_rad)*math.sin(gnp_dec_rad)
+    equatorial_dec_rad = math.asin(T)
+
+    y = math.cos(galactic_lat_rad)*math.cos(galactic_long_rad - N_zero)
+    x = math.sin(galactic_lat_rad)*math.cos(gnp_dec_rad) - \
+        math.cos(galactic_lat_rad)*math.sin(gnp_dec_rad)*math.sin(galactic_long_rad - N_zero)
+    equatorial_RA_rad = math.atan(y/x)
+    quad_adj = 0
+    if y>0 and x>0: 
+        quad_adj += 0 
+    elif y>0 and x<0: 
+        quad_adj += math.pi
+    elif y<0 and x>0: 
+        quad_adj += 2*math.pi 
+    elif y<0 and x<0: 
+        quad_adj += math.pi
+    equatorial_RA_rad += (quad_adj + gnp_RA_rad)
+
+    if equatorial_RA_rad > 2 * math.pi:
+        equatorial_RA_rad -= 2 * math.pi
+    
+    equatorial_RA = equatorial_RA_rad * 360 / (2 * math.pi)
+    equatorial_RA = degrees_to_HA(equatorial_RA)
+    equatorial_dec = equatorial_dec_rad * 360 / (2 * math.pi)
+    equatorial_dec = degrees_to_degreesMS(equatorial_dec)
+    equatorial_coords = {'right_ascension': equatorial_RA, 'declination': equatorial_dec}
+    
+    return equatorial_coords
+
+def equatorial_to_galactic(equatorial_RA = 0, equatorial_dec = 0, epoch = 1950):
+
+    equatorial_RA = HA_to_degrees(equatorial_RA)
+    equatorial_dec = degMS_to_degrees(equatorial_dec)
+    eq_RA_rad = equatorial_RA / 360 * 2 * math.pi
+    eq_dec_rad = equatorial_dec / 360 * 2 * math.pi
+
+    if epoch == 1950:
+        gnp_RA_rad = 192.25 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.4 / 360 * 2 * math.pi
+        N_zero = 33 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+    elif epoch == 2000:
+        gnp_RA_rad = 192.8598 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.128027 / 360 * 2 * math.pi
+        N_zero = 32.9319 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+    else:
+        print('Invalid epoch entered, using 1950 epoch')
+        gnp_RA_rad = 192.25 / 360 * 2 * math.pi
+        gnp_dec_rad = 27.4 / 360 * 2 * math.pi
+        N_zero = 33 / 360 * 2 * math.pi # Galactic north pole ascending longitude
+
+    T_zero = math.cos(eq_dec_rad)*math.cos(gnp_dec_rad)*math.cos(eq_RA_rad - gnp_RA_rad) +\
+        math.sin(eq_dec_rad)*math.sin(gnp_dec_rad) 
+    galactic_lat_rad = math.asin(T_zero)
+
+    y = math.sin(eq_dec_rad)-math.sin(galactic_lat_rad)*math.sin(gnp_dec_rad)
+    x = math.cos(eq_dec_rad)*math.sin(eq_RA_rad - gnp_RA_rad)*math.cos(gnp_dec_rad)
+    galactic_long_rad = math.atan(y/x)
+    quad_adj = 0
+    if y>0 and x>0: 
+        quad_adj += 0 
+    elif y>0 and x<0: 
+        quad_adj += math.pi
+    elif y<0 and x>0: 
+        quad_adj += 2*math.pi 
+    elif y<0 and x<0: 
+        quad_adj += math.pi
+    galactic_long_rad += (quad_adj + N_zero)
+
+    if galactic_long_rad > 2 * math.pi:
+        galactic_long_rad -= 2 * math.pi
+    
+    galactic_long = galactic_long_rad * 360 / (2 * math.pi)
+    galactic_long = degrees_to_degreesMS(galactic_long)
+    galactic_lat = galactic_lat_rad * 360 / (2 * math.pi)
+    galactic_lat = degrees_to_degreesMS(galactic_lat)
+    galactic_coords = {'galactic_longitude': galactic_long, 'galactic_latitude': galactic_lat}
+    
+    return galactic_coords
+    
 ###########################################
 #---------------MAIN SCRIPT---------------#
 ###########################################
 
-ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
-    right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
+# ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
+#     right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
 
-print('Ecliptic longitude: ', ecliptic_coords['ecliptic longitude'], '\n'\
-    'Ecliptic latitude: ', ecliptic_coords['ecliptic latitude'])
+# print('Ecliptic longitude: ', ecliptic_coords['ecliptic longitude'], '\n'\
+#     'Ecliptic latitude: ', ecliptic_coords['ecliptic latitude'])
 
 # eq_coords = ecliptic_to_equatorial(epoch = 2000, \
 #     ecliptic_long = '120deg 30m 30s', ecliptic_lat = '0deg 00m 00s')
 
 # print('Right ascension: ', eq_coords['right_ascension'], '\n'\
 #     'Declination: ', eq_coords['declination'])
+
+# eq_coords = galactic_to_equatorial(galactic_lat = '55deg 20m 00s', \
+#     galactic_long = '180deg 00m 00s', epoch = '2000')
+# print('Right Ascension: ', eq_coords['right_ascension'], \
+#     '\nDeclination: ', eq_coords['declination'])
+
+galactic_coords = equatorial_to_galactic(equatorial_RA = '10h 12m 43s', \
+    equatorial_dec = '40deg 48m 33s', epoch = 1950)
+print('Galactic latitude: ', galactic_coords['galactic_latitude'], \
+    '\nGalactic longitude: ', galactic_coords['galactic_longitude'])
 
