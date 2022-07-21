@@ -428,6 +428,37 @@ def equatorial_to_galactic(equatorial_RA = 0, equatorial_dec = 0, epoch = 1950):
     galactic_coords = {'galactic_longitude': galactic_long, 'galactic_latitude': galactic_lat}
     
     return galactic_coords
+
+def precession_corrections(RA_uncorrected = None, dec_uncorrected = None, epoch_from = 1950, epoch_to = 1950):
+    """returns correction to RA in hours and dec in degrees, as well as corrected RA and Dec"""
+    RA_uncorrected = HA_to_degrees(RA_uncorrected)
+    dec_uncorrected = degMS_to_degrees(dec_uncorrected)
+    T_var = (epoch_to - 1900) / 100
+    M_var = 3.07234 + .00186*T_var # Seconds of time
+    N_d = 20.0468 - 0.0085*T_var # Arcseconds
+    N_t = N_d / 15 # Converts arcseconds to seconds of time
+    D_var = epoch_to - epoch_from
+
+    # delta_RA = correction to RA_uncorrected in degrees
+    delta_RA = (M_var + N_t*math.sin(RA_uncorrected / 360 * 2 * math.pi) * \
+        math.tan(dec_uncorrected / 360 * 2 * math.pi)) * D_var
+    delta_RA = delta_RA / 3600 # Conversion to hours
+    RA_corrected = RA_uncorrected + delta_RA * 15 # Conversion to degrees...do it elsewhere
+    
+    # delta_dec = correction to dec_uncorrected in degrees
+    delta_dec = (N_d*math.cos(RA_uncorrected / 360 * 2 * math.pi)) * D_var # In arcseconds
+    delta_dec = delta_dec / 3600
+    dec_corrected = dec_uncorrected + delta_dec
+
+    RA_corrected = degrees_to_HA(RA_corrected)
+    dec_corrected = degrees_to_degreesMS(dec_corrected)
+    corrections_degrees = {'delta_RA': delta_RA, 'delta_dec': delta_dec, \
+        'RA_corrected': RA_corrected, 'dec_corrected': dec_corrected}
+
+    return corrections_degrees
+
+
+
     
 ###########################################
 #---------------MAIN SCRIPT---------------#
@@ -445,13 +476,21 @@ def equatorial_to_galactic(equatorial_RA = 0, equatorial_dec = 0, epoch = 1950):
 # print('Right ascension: ', eq_coords['right_ascension'], '\n'\
 #     'Declination: ', eq_coords['declination'])
 
-# eq_coords = galactic_to_equatorial(galactic_lat = '55deg 20m 00s', \
-#     galactic_long = '180deg 00m 00s', epoch = '2000')
+# eq_coords = galactic_to_equatorial(galactic_lat = '30deg 25m 40s', \
+#     galactic_long = '120deg 00m 00s', epoch = 2000)
 # print('Right Ascension: ', eq_coords['right_ascension'], \
 #     '\nDeclination: ', eq_coords['declination'])
 
-galactic_coords = equatorial_to_galactic(equatorial_RA = '10h 12m 43s', \
-    equatorial_dec = '40deg 48m 33s', epoch = 1950)
-print('Galactic latitude: ', galactic_coords['galactic_latitude'], \
-    '\nGalactic longitude: ', galactic_coords['galactic_longitude'])
+# galactic_coords = equatorial_to_galactic(equatorial_RA = '11h 10m 13s', \
+#     equatorial_dec = '30deg 05m 40s', epoch = 2000)
+# print('Galactic latitude: ', galactic_coords['galactic_latitude'], \
+#     '\nGalactic longitude: ', galactic_coords['galactic_longitude'])
+
+# corrections = precession_corrections(RA_uncorrected = '12h 34m 34s', \
+#     dec_uncorrected = '29deg 49m 08s', epoch_from = 2000, epoch_to = 2015.0)
+# print('RA correction: ', corrections['delta_RA'], \
+#     '\nDec correction: ', corrections['delta_dec'], \
+#     '\nRA corrected: ', corrections['RA_corrected'], \
+#     '\nDec corrected: ', corrections['dec_corrected'])
+
 
