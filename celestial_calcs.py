@@ -1,6 +1,7 @@
 #!Python3
 # celestial_calcs - a module to carry out astronomical time conversions
 
+from cmath import pi
 import datetime as dt
 import dateutil as du
 import numpy as np
@@ -457,7 +458,48 @@ def precession_corrections(RA_uncorrected = None, dec_uncorrected = None, epoch_
 
     return corrections_degrees
 
+def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
+    eccentric_anomaly = None, solve_method = 'Simple', termination_criteria = .0001):
+    """Return mean anomaly if eccentric is given, or eccentric if mean is given. One can select numerical method"""
+    while not orbital_eccentricity:
+        orbital_eccentricity = input('Please enter an orbital eccentricity: ')
 
+    if eccentric_anomaly:
+        E_rads = eccentric_anomaly /360 * 2 * math.pi
+        mean_anomaly = e_rads - orbital_eccentricity * math.sin(e_rads)
+        mean_anomaly = mean_anomaly / (2*math.pi) * 360
+        return mean_anomaly
+    elif mean_anomaly:
+        M_rads = mean_anomaly / 360 * 2 * math.pi
+        if solve_method == 'Simple':
+            E_rads_prior = M_rads
+            E_rads_current = M_rads + orbital_eccentricity * math.sin(E_rads_prior)
+            iteration_count = 1
+            while abs(E_rads_current - E_rads_prior) > termination_criteria:
+                E_rads_prior = E_rads_current
+                E_rads_current = M_rads + orbital_eccentricity * math.sin(E_rads_prior)
+                iteration_count += 1
+        elif solve_method == 'Newton/Raphson':
+            E_rads_prior = M_rads
+            E_rads_current = E_rads_prior - \
+                (E_rads_prior - orbital_eccentricity * math.sin(E_rads_prior) - M_rads) / \
+                (1 - orbital_eccentricity * math.cos(E_rads_prior))
+            iteration_count = 1
+            while abs(E_rads_current - E_rads_prior) > termination_criteria:
+                E_rads_prior = E_rads_current
+                E_rads_current = E_rads_prior - \
+                    (E_rads_prior - orbital_eccentricity * math.sin(E_rads_prior) - M_rads) / \
+                    (1 - orbital_eccentricity * math.cos(E_rads_prior))
+                iteration_count += 1
+        else:
+            print('Numerical method not recognized')
+            return None
+        print(f'Keppler solution found in {iteration_count} iterations using {solve_method} numerical method')
+        eccentric_anomaly = E_rads_current * 360 / (2 * math.pi)
+        return eccentric_anomaly
+    else:
+        print('Missing anomaly input. Cannot compute')
+        return None
 
     
 ###########################################
@@ -492,5 +534,10 @@ def precession_corrections(RA_uncorrected = None, dec_uncorrected = None, epoch_
 #     '\nDec correction: ', corrections['delta_dec'], \
 #     '\nRA corrected: ', corrections['RA_corrected'], \
 #     '\nDec corrected: ', corrections['dec_corrected'])
+
+print(solve_keppler(orbital_eccentricity = .850000, \
+    mean_anomaly = 5.498078, \
+    solve_method = 'Newton/Raphson', \
+    termination_criteria = .000_002))
 
 
