@@ -4,6 +4,7 @@
 from cmath import pi
 import datetime as dt
 import dateutil as du
+from dateutil import tz
 import numpy as np
 import math
 import re
@@ -41,14 +42,14 @@ def degMS_to_degrees(dec):
     degrees = degrees*-1 if degMS[1] == '-' else degrees
     return degrees
 
-def hms_to_decimal(datetime_object):
+def datetime_to_decimal(datetime_object):
     hours = int(datetime_object.strftime('%H'))
     minutes = int(datetime_object.strftime('%M'))
     seconds = float(datetime_object.strftime('%S.%f'))
     decimal_time = hours + minutes/60 + seconds/3600
     return decimal_time
 
-def decimal_to_hms(y, m, d, decimal_time):
+def decimal_to_datetime(y, m, d, decimal_time):
     H = int(np.fix(decimal_time))
     M = int(np.fix((decimal_time % 1) * 60))
     S = int(np.fix((decimal_time * 3600) - (H * 3600) - (M * 60)))
@@ -62,6 +63,13 @@ def parse_longitude(longitude_str):
     regex_east_west = re.compile(r'W|w|E|e|West|west|East|east') #Define regex to parse east-west
     east_west = regex_east_west.search(longitude_str).group(0).lower() #Parse east-west
     return{'longitude':longitude_nbr, 'east_west':east_west}
+
+def parse_latitude(latitude_str):   
+    regex_latitude_nbr = re.compile(r'\d+') #Define regex to parse latitude degrees
+    latitude_nbr = float(regex_latitude_nbr.search(latitude_str).group(0)) #Parse latitude degrees
+    regex_north_south = re.compile(r'N|n|S|s|North|north|South|south') #Define regex to parse north-south
+    north_south = regex_north_south.search(latitude_str).group(0).lower() #Parse north-south
+    return{'latitude':latitude_nbr, 'north_south':north_south}
 
 def date_to_JD(ut_date):
     """convert UT date to Julian date. Date passed shoudl be datetime object"""
@@ -96,8 +104,8 @@ def date_to_JD(ut_date):
     return JD
         
 
-def LCT_to_UT(lct, longitude_str, dst):
-    """function to convert LCT to UT"""
+def LCT_to_UT(lct, longitude_str, dst = 'n'):
+    """function to convert LCT to UT. Expects dst = y or n"""
     
     #Convert lct to datetime object
     try:
@@ -145,7 +153,7 @@ def UT_to_GST(ut_date):
     T0 = (0.0657098 * Days) - B
     
     #Step 8 - validated
-    UT = hms_to_decimal(ut_date)
+    UT = datetime_to_decimal(ut_date)
     
     #Step 9 - validated
     GST = T0 + 1.002738 * UT
@@ -160,7 +168,7 @@ def UT_to_GST(ut_date):
     year = int(ut_date.strftime('%Y'))
     month = int(ut_date.strftime('%m'))
     day = int(ut_date.strftime('%d'))
-    GST = decimal_to_hms(year, month, day, GST)
+    GST = decimal_to_datetime(year, month, day, GST)
     return GST
     
 def GST_to_LST(GST_datetime_object, longitude_str):
@@ -170,7 +178,7 @@ def GST_to_LST(GST_datetime_object, longitude_str):
     longitude = longitude*-1 if east_west == 'w' else longitude
     
     #Step 1 - Convert GST to decimal format
-    GST_decimal = hms_to_decimal(GST_datetime_object)
+    GST_decimal = datetime_to_decimal(GST_datetime_object)
     
     #Step 2 - Time zone adjustment
     adjustment = longitude / 15
@@ -187,7 +195,7 @@ def GST_to_LST(GST_datetime_object, longitude_str):
     year = int(GST_datetime_object.strftime('%Y'))
     month = int(GST_datetime_object.strftime('%m'))
     day = int(GST_datetime_object.strftime('%d'))
-    LST_hms = decimal_to_hms(year, month, day, LST_decimal)
+    LST_hms = decimal_to_datetime(year, month, day, LST_decimal)
     
     return LST_hms
 
@@ -381,7 +389,8 @@ def galactic_to_equatorial(galactic_lat = 0, galactic_long = 0, epoch= 1950):
     return equatorial_coords
 
 def equatorial_to_galactic(equatorial_RA = 0, equatorial_dec = 0, epoch = 1950):
-
+    """Converts equatorial coordinates to galactic coordinates and returns in 
+    Deg MS format"""
     equatorial_RA = HA_to_degrees(equatorial_RA)
     equatorial_dec = degMS_to_degrees(equatorial_dec)
     eq_RA_rad = equatorial_RA / 360 * 2 * math.pi
@@ -505,6 +514,7 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
 ###########################################
 #---------------MAIN SCRIPT---------------#
 ###########################################
+###   HA = LST - RA   ###
 
 # ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
 #     right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
@@ -535,9 +545,41 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
 #     '\nRA corrected: ', corrections['RA_corrected'], \
 #     '\nDec corrected: ', corrections['dec_corrected'])
 
-print(solve_keppler(orbital_eccentricity = .850000, \
-    mean_anomaly = 5.498078, \
-    solve_method = 'Newton/Raphson', \
-    termination_criteria = .000_002))
+# print(solve_keppler(orbital_eccentricity = .850000, \
+#     mean_anomaly = 5.498078, \
+#     solve_method = 'Newton/Raphson', \
+#     termination_criteria = .000_002))
 
+"""REEPLACE LCT TO UTC TIMEZONE CONVERSIONS USING BELOW AND ABILITY TO ENTER TIMEZONE NAME"""
+lct = dt.datetime(2022, 8, 3, 22, 30, 00, tzinfo = tz.gettz('Eastern Time'))
+print(lct)
+ut = lct.astimezone(tz.gettz('UTC'))
+print(ut)
+# print(ut)
 
+venus_ra = '17h 43m 54s'
+venus_dec = '-22deg 10m 00s'
+lct = '1/21/2016 21:30:00'
+lat_str= '38N'
+long_str = '78W'
+
+"""NEED TO WRITE FUNCTION THAT CONVERTS HMS TO HOUR DECIMAL"""
+"""OR FIGURE OUT BETTER WAY TO DO TIME CONVERSIONS"""
+
+UT = LCT_to_UT(lct, long_str, dst = 'n') # Need to fix this to be a simple timezone conversion
+UT = UT - dt.timedelta(minutes=12)
+print(UT)
+GST = UT_to_GST(UT)
+print(GST)
+LST = GST_to_LST(GST, long_str)
+print(datetime_to_decimal(LST))
+
+venus_HA = datetime_to_decimal(LST) - (17 + 43/60 + 54/3600) + 24
+print(venus_HA)
+
+lat = parse_latitude(lat_str)
+venus_dec_deg = degMS_to_degrees(venus_dec)
+venus_HA_deg = venus_HA * 15
+altaz_coords = eq_to_altaz(venus_HA_deg, venus_dec_deg, lat['latitude'], lat['north_south'])
+print('Altitude: '+altaz_coords['altitude'])
+print('Azimuth: '+ altaz_coords['azimuth'])
