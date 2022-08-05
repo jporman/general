@@ -5,6 +5,7 @@ from cmath import pi
 import datetime as dt
 import dateutil as du
 from dateutil import tz
+import pytz
 import numpy as np
 import math
 import re
@@ -41,6 +42,15 @@ def degMS_to_degrees(dec):
     degrees = float(degrees) + float(minutes)/60 + float(seconds)/3600
     degrees = degrees*-1 if degMS[1] == '-' else degrees
     return degrees
+
+def hms_to_decimal(hms_str):
+    hms_regex = re.compile(r'(\d\d?)(h?)(\s?)(\d\d?)(m?|\'?)(\s?)(\d\d?\.?\d*)(s?|\"?)(\s?)')
+    hms = hms_regex.search(hms_str)
+    hours = hms[1]
+    minutes = hms[4]
+    seconds = hms[7]
+    decimal = int(hours) + int(minutes)/60 + int(seconds)/3600
+    return decimal
 
 def datetime_to_decimal(datetime_object):
     hours = int(datetime_object.strftime('%H'))
@@ -92,7 +102,7 @@ def date_to_JD(ut_date):
         T = 0
     
     #Step 3/4
-    if ut_date >= dt.datetime(1582, 10, 15, 0, 0, 0):
+    if ut_date >= dt.datetime(1582, 10, 15, 0, 0, 0).astimezone(pytz.timezone('UTC')):
         A = np.fix(y/100)
         B = 2 - A + np.fix(A/4)
     else:
@@ -104,7 +114,7 @@ def date_to_JD(ut_date):
     return JD
         
 
-def LCT_to_UT(lct, longitude_str, dst = 'n'):
+def LCT_to_UT(lct, longitude_str = None, time_zone = None, dst = 'n'):
     """function to convert LCT to UT. Expects dst = y or n"""
     
     #Convert lct to datetime object
@@ -116,16 +126,22 @@ def LCT_to_UT(lct, longitude_str, dst = 'n'):
         except ValueError:  
             print('Invalid date-time entered')
     
-    longitude = parse_longitude(longitude_str)['longitude']
-    east_west = parse_longitude(longitude_str)['east_west']
+    if time_zone == None:
+            
+        longitude = parse_longitude(longitude_str)['longitude']
+        east_west = parse_longitude(longitude_str)['east_west']
+        
+        #Determine whether to apply positive or negative adj to LCT
+        adj_factor = 1 if east_west == 'e' else -1
+
+        #Calculate adjustment to LCT to get to UT (accounting for position in timezone)
+        adj_hours = longitude / 15 * adj_factor
+        dst_adj = 1 if dst == 'y' else 0
+        ut = lct - dt.timedelta(hours = adj_hours + dst_adj)
     
-    #Determine whether to apply positive or negative adj to LCT
-    adj_factor = 1 if east_west == 'e' else -1
-    
-    #Calculate adjustment to LCT to get to UT (accounting for position in timezone)
-    adj_hours = longitude / 15 * adj_factor
-    dst_adj = 1 if dst == 'y' else 0
-    ut = lct - dt.timedelta(hours = adj_hours + dst_adj)
+    else:
+        lct = lct.astimezone(pytz.timezone(time_zone))
+        ut = lct.astimezone(pytz.timezone('UTC'))
     
     return ut
 
@@ -135,7 +151,7 @@ def UT_to_GST(ut_date):
     JD = date_to_JD(ut_date)
     
     #Step 2 - validated
-    JD0 = date_to_JD(dt.datetime(int(ut_date.strftime('%Y')), 1, 1, 0, 0, 0)) - 1
+    JD0 = date_to_JD(dt.datetime(int(ut_date.strftime('%Y')), 1, 1, 0, 0, 0, tzinfo = pytz.UTC)) - 1
     
     #Step 3 - validated
     Days = JD - JD0
@@ -475,7 +491,7 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
 
     if eccentric_anomaly:
         E_rads = eccentric_anomaly /360 * 2 * math.pi
-        mean_anomaly = e_rads - orbital_eccentricity * math.sin(e_rads)
+        mean_anomaly = E_rads - orbital_eccentricity * math.sin(E_rads)
         mean_anomaly = mean_anomaly / (2*math.pi) * 360
         return mean_anomaly
     elif mean_anomaly:
@@ -510,6 +526,21 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
         print('Missing anomaly input. Cannot compute')
         return None
 
+def lct_loc_eq_to_altaz(lct = None, tz = None, long = None, \
+    lat = None, RA = None, dec = None, dst = 'n'):
+
+    UT = LCT_to_UT(lct, time_zone = tz)
+    GST = UT_to_GST(UT)
+    LST = GST_to_LST(GST, long)
+
+    HA = datetime_to_decimal(LST) - hms_to_decimal(RA)
+    if HA < 0:
+        HA += 24
+
+    lat = parse_latitude(lat)
+    dec_deg = degMS_to_degrees(dec)
+    HA_deg = HA * 15
+    return eq_to_altaz(HA_deg, dec_deg, lat['latitude'], lat['north_south'])
     
 ###########################################
 #---------------MAIN SCRIPT---------------#
@@ -550,36 +581,16 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
 #     solve_method = 'Newton/Raphson', \
 #     termination_criteria = .000_002))
 
-"""REEPLACE LCT TO UTC TIMEZONE CONVERSIONS USING BELOW AND ABILITY TO ENTER TIMEZONE NAME"""
-lct = dt.datetime(2022, 8, 3, 22, 30, 00, tzinfo = tz.gettz('Eastern Time'))
-print(lct)
-ut = lct.astimezone(tz.gettz('UTC'))
-print(ut)
-# print(ut)
+# determine horizon coordinates given location, lct, eq coords
+# venus_RA= '17h 43m 54s'
+# venus_dec = '-22deg 10m 00s'
+# lct = '1/21/2016 21:30:00'
+# lat_str= '38N'
+# long_str = '78W'
+# altaz_coords = lct_loc_eq_to_altaz(lct = lct, tz = 'US/Eastern', \
+#     long = long_str, lat = lat_str, RA = venus_RA, dec = venus_dec,\
+#     dst = 'n')
+# print('Altitude: '+altaz_coords['altitude'])
+# print('Azimuth: '+ altaz_coords['azimuth'])
 
-venus_ra = '17h 43m 54s'
-venus_dec = '-22deg 10m 00s'
-lct = '1/21/2016 21:30:00'
-lat_str= '38N'
-long_str = '78W'
 
-"""NEED TO WRITE FUNCTION THAT CONVERTS HMS TO HOUR DECIMAL"""
-"""OR FIGURE OUT BETTER WAY TO DO TIME CONVERSIONS"""
-
-UT = LCT_to_UT(lct, long_str, dst = 'n') # Need to fix this to be a simple timezone conversion
-UT = UT - dt.timedelta(minutes=12)
-print(UT)
-GST = UT_to_GST(UT)
-print(GST)
-LST = GST_to_LST(GST, long_str)
-print(datetime_to_decimal(LST))
-
-venus_HA = datetime_to_decimal(LST) - (17 + 43/60 + 54/3600) + 24
-print(venus_HA)
-
-lat = parse_latitude(lat_str)
-venus_dec_deg = degMS_to_degrees(venus_dec)
-venus_HA_deg = venus_HA * 15
-altaz_coords = eq_to_altaz(venus_HA_deg, venus_dec_deg, lat['latitude'], lat['north_south'])
-print('Altitude: '+altaz_coords['altitude'])
-print('Azimuth: '+ altaz_coords['azimuth'])
