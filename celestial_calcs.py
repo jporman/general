@@ -52,6 +52,14 @@ def hms_to_decimal(hms_str):
     decimal = int(hours) + int(minutes)/60 + int(seconds)/3600
     return decimal
 
+def decimal_to_hms(decimal_time):
+    H = int(np.fix(decimal_time))
+    M = int(np.fix((abs(decimal_time) % 1) * 60))
+    S = int(np.fix((abs(decimal_time) * 3600) - (abs(H) * 3600) - (M * 60)))
+    MS = int(np.fix(abs(decimal_time) * 3600 * 1000000 - abs(H) * 3600 * 1000000 - abs(M) * 60 * 1000000 - abs(S) * 1000000))
+    hms_time = f"{H}h {M}m {S}.{MS}s"
+    return hms_time
+
 def datetime_to_decimal(datetime_object):
     hours = int(datetime_object.strftime('%H'))
     minutes = int(datetime_object.strftime('%M'))
@@ -526,10 +534,12 @@ def solve_keppler(orbital_eccentricity = None, mean_anomaly = None, \
         print('Missing anomaly input. Cannot compute')
         return None
 
-def lct_loc_eq_to_altaz(lct = None, tz = None, long = None, \
+def lct_loc_eq_to_altaz(lct = None, time_zone = None, long = None, \
     lat = None, RA = None, dec = None, dst = 'n'):
+    """Return altaz coords given local civil time (lct), location (lat, long)
+    and equatorial coordinates of target. Returns in degMS and hms format"""
 
-    UT = LCT_to_UT(lct, time_zone = tz)
+    UT = LCT_to_UT(lct, time_zone = time_zone)
     GST = UT_to_GST(UT)
     LST = GST_to_LST(GST, long)
 
@@ -541,56 +551,95 @@ def lct_loc_eq_to_altaz(lct = None, tz = None, long = None, \
     dec_deg = degMS_to_degrees(dec)
     HA_deg = HA * 15
     return eq_to_altaz(HA_deg, dec_deg, lat['latitude'], lat['north_south'])
+
+def lct_loc_altaz_to_eq(lct = None, time_zone = None, long = None, \
+    lat = None, alt = None, az = None, dst = 'n'):
+
+    alt_deg = degMS_to_degrees(alt)
+    az_deg = degMS_to_degrees(az)
+
+    UT = LCT_to_UT(lct, time_zone = time_zone)
+    GST = UT_to_GST(UT)
+    LST = GST_to_LST(GST, long)
+
+    LST_decimal = datetime_to_decimal(LST)
+    if LST_decimal < 0:
+        LST_decimal += 24
+
+    lat = parse_latitude(lat_str)
+    eq_coords = altaz_to_eq(alt_deg, az_deg, lat['latitude'], lat['north_south'])
+    eq_coords['right_ascension'] = LST_decimal - hms_to_decimal((eq_coords['hour_angle']))
+    if eq_coords['right_ascension'] < 0:
+        eq_coords['right_ascension'] += 24.0
+    eq_coords['right_ascension'] = decimal_to_hms(eq_coords['right_ascension'])
+    del eq_coords['hour_angle']
+
+    return eq_coords
     
 ###########################################
 #---------------MAIN SCRIPT---------------#
 ###########################################
 ###   HA = LST - RA   ###
 
-# ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
-#     right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
+def main():
+    # ecliptic_coords = equatorial_to_ecliptic(epoch = 2000, \
+    #     right_ascension = '11h 10m 13s', declination = '30deg 05m 40s')
 
-# print('Ecliptic longitude: ', ecliptic_coords['ecliptic longitude'], '\n'\
-#     'Ecliptic latitude: ', ecliptic_coords['ecliptic latitude'])
+    # print('Ecliptic longitude: ', ecliptic_coords['ecliptic longitude'], '\n'\
+    #     'Ecliptic latitude: ', ecliptic_coords['ecliptic latitude'])
 
-# eq_coords = ecliptic_to_equatorial(epoch = 2000, \
-#     ecliptic_long = '120deg 30m 30s', ecliptic_lat = '0deg 00m 00s')
+    # eq_coords = ecliptic_to_equatorial(epoch = 2000, \
+    #     ecliptic_long = '120deg 30m 30s', ecliptic_lat = '0deg 00m 00s')
 
-# print('Right ascension: ', eq_coords['right_ascension'], '\n'\
-#     'Declination: ', eq_coords['declination'])
+    # print('Right ascension: ', eq_coords['right_ascension'], '\n'\
+    #     'Declination: ', eq_coords['declination'])
 
-# eq_coords = galactic_to_equatorial(galactic_lat = '30deg 25m 40s', \
-#     galactic_long = '120deg 00m 00s', epoch = 2000)
-# print('Right Ascension: ', eq_coords['right_ascension'], \
-#     '\nDeclination: ', eq_coords['declination'])
+    # eq_coords = galactic_to_equatorial(galactic_lat = '30deg 25m 40s', \
+    #     galactic_long = '120deg 00m 00s', epoch = 2000)
+    # print('Right Ascension: ', eq_coords['right_ascension'], \
+    #     '\nDeclination: ', eq_coords['declination'])
 
-# galactic_coords = equatorial_to_galactic(equatorial_RA = '11h 10m 13s', \
-#     equatorial_dec = '30deg 05m 40s', epoch = 2000)
-# print('Galactic latitude: ', galactic_coords['galactic_latitude'], \
-#     '\nGalactic longitude: ', galactic_coords['galactic_longitude'])
+    # galactic_coords = equatorial_to_galactic(equatorial_RA = '11h 10m 13s', \
+    #     equatorial_dec = '30deg 05m 40s', epoch = 2000)
+    # print('Galactic latitude: ', galactic_coords['galactic_latitude'], \
+    #     '\nGalactic longitude: ', galactic_coords['galactic_longitude'])
 
-# corrections = precession_corrections(RA_uncorrected = '12h 34m 34s', \
-#     dec_uncorrected = '29deg 49m 08s', epoch_from = 2000, epoch_to = 2015.0)
-# print('RA correction: ', corrections['delta_RA'], \
-#     '\nDec correction: ', corrections['delta_dec'], \
-#     '\nRA corrected: ', corrections['RA_corrected'], \
-#     '\nDec corrected: ', corrections['dec_corrected'])
+    # corrections = precession_corrections(RA_uncorrected = '12h 34m 34s', \
+    #     dec_uncorrected = '29deg 49m 08s', epoch_from = 2000, epoch_to = 2015.0)
+    # print('RA correction: ', corrections['delta_RA'], \
+    #     '\nDec correction: ', corrections['delta_dec'], \
+    #     '\nRA corrected: ', corrections['RA_corrected'], \
+    #     '\nDec corrected: ', corrections['dec_corrected'])
 
-# print(solve_keppler(orbital_eccentricity = .850000, \
-#     mean_anomaly = 5.498078, \
-#     solve_method = 'Newton/Raphson', \
-#     termination_criteria = .000_002))
+    # print(solve_keppler(orbital_eccentricity = .850000, \
+    #     mean_anomaly = 5.498078, \
+    #     solve_method = 'Newton/Raphson', \
+    #     termination_criteria = .000_002))
 
-# determine horizon coordinates given location, lct, eq coords
-# venus_RA= '17h 43m 54s'
-# venus_dec = '-22deg 10m 00s'
-# lct = '1/21/2016 21:30:00'
-# lat_str= '38N'
-# long_str = '78W'
-# altaz_coords = lct_loc_eq_to_altaz(lct = lct, tz = 'US/Eastern', \
-#     long = long_str, lat = lat_str, RA = venus_RA, dec = venus_dec,\
-#     dst = 'n')
-# print('Altitude: '+altaz_coords['altitude'])
-# print('Azimuth: '+ altaz_coords['azimuth'])
+    # determine horizon coordinates given location, lct, eq coords
+    # saturn_RA= '21h 40m 49s'
+    # saturn_dec = '-15deg 22m 03s'
+    # lct = '8/7/2022 22:20:00'
+    # lat_str= '42.2809N'
+    # long_str = '-71.2378W'
+    # altaz_coords = lct_loc_eq_to_altaz(lct = lct, time_zone = 'US/Eastern', \
+    #     long = long_str, lat = lat_str, RA = saturn_RA, dec = saturn_dec,\
+    #     dst = 'n')
+    # print('Altitude: '+ altaz_coords['altitude'])
+    # print('Azimuth: '+ altaz_coords['azimuth'])
 
+    # determine lct_loc_altaz_to_eq
+    # lct_arg = '1/21/2016 21:45:00'
+    # lat_str= '38N'
+    # long_str = '78W'
+    # tmzn = 'US/Eastern'
+    # alt_arg = '59deg 13m 0s' 
+    # az_arg = '171deg 5m 0s'
+    # eq_coords = lct_loc_altaz_to_eq(lct = lct_arg, time_zone = tmzn, \
+    #     long = long_str, lat = lat_str, alt = alt_arg, az=az_arg, dst = 'n')
+    # print('Right Ascension: ', eq_coords['right_ascension'])
+    # print('Declination: ', eq_coords['declination'])
 
+    # print('RA deg: '+str(hms_to_decimal('21h40m49s')*15))
+    # print('Dec deg: '+str(degMS_to_degrees('-15deg15m41s'))
+    pass

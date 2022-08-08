@@ -1,0 +1,62 @@
+#!Python 3
+# astroplanning - learning to use the astroplan module
+
+import numpy as np
+from astroplan.plots import plot_sky
+from astroplan import Observer
+from astroplan import FixedTarget
+import matplotlib.pyplot as plt
+from astropy.coordinates import EarthLocation
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+from astropy.time import Time
+import pytz
+from datetime import datetime
+import celestial_calcs as cc
+
+# define observer location and observation time
+location = EarthLocation.from_geodetic(-71.2378*u.deg, 42.2809*u.deg, 0*u.m)
+observer = Observer(location = location, name='Needham', timezone='US/Eastern')
+time_zone = 'US/Eastern'
+lct = datetime(2022, 8, 7, 22, 20, 0, 0)
+
+# Convert local to universal time and construct 'observation time' object
+lct = lct.astimezone(pytz.timezone(time_zone))
+ut = lct.astimezone(pytz.timezone('UTC'))
+ut64 = np.datetime64(ut)
+observation_time = Time(ut64, scale = 'utc', format = 'datetime64')
+observation_time = observation_time + np.linspace(-2, 2, 5)*u.h
+
+# get fixed targets
+deneb = FixedTarget.from_name('Deneb')
+vega = FixedTarget.from_name('Vega')
+polaris = FixedTarget.from_name('Polaris')
+
+# define coordinates for saturn, jupiter
+saturn_ra = cc.hms_to_decimal('21h40m49s')*15
+saturn_dec = cc.degMS_to_degrees('-15deg15m41s')
+saturn_coord = SkyCoord(ra = saturn_ra*u.deg, dec = saturn_dec*u.deg)
+saturn = FixedTarget(saturn_coord, name = 'Saturn')
+
+jupiter_ra = cc.hms_to_decimal('00h32m33s')*15
+jupiter_dec = cc.degMS_to_degrees('1deg54m13s')
+jupiter_coord = SkyCoord(ra = jupiter_ra*u.deg, dec = jupiter_dec*u.deg)
+jupiter = FixedTarget(jupiter_coord, name = 'Jupiter')
+
+# define plot styles
+deneb_style = {'color': 'c'}
+vega_style = {'color': 'b'}
+polaris_style = {'color': 'k'}
+saturn_style = {'color': 'y'}
+jupiter_style = {'color': 'r'}
+
+plot_sky(deneb, observer, observation_time, style_kwargs = deneb_style)
+plot_sky(vega, observer, observation_time, style_kwargs = vega_style)
+plot_sky(polaris, observer, observation_time, style_kwargs = polaris_style)
+sat_plot = plot_sky(saturn, observer, observation_time, style_kwargs = saturn_style)
+plot_sky(jupiter, observer, observation_time, style_kwargs = jupiter_style)
+
+#Annotate plot with times
+plt.annotate((observation_time[3]-5*u.h).strftime('%H:%M'), (.74*np.pi, 85))
+plt.legend(loc='center left', bbox_to_anchor=(1.25, 0.5))
+plt.show()
