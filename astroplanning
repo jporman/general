@@ -1,38 +1,48 @@
 #!Python 3
 # astroplanning - learning to use the astroplan module
 
+from colorsys import TWO_THIRD
 import numpy as np
 from astroplan.plots import plot_sky
 from astroplan import Observer
 from astroplan import FixedTarget
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.font_manager import FontProperties
 from astropy.coordinates import EarthLocation
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from astropy.time import Time
 import pytz
 from datetime import datetime
+import datetime as dt
 import celestial_calcs as cc
+import pandas as pd
 
-# define observer location and observation time
+# Define observer location and observation time
 location = EarthLocation.from_geodetic(-71.2378*u.deg, 42.2809*u.deg, 0*u.m)
 observer = Observer(location = location, name='Needham', timezone='US/Eastern')
 time_zone = 'US/Eastern'
-lct = datetime(2022, 8, 7, 22, 20, 0, 0)
+lct = datetime(2022, 8, 16, 20, 0, 0, 0)
 
 # Convert local to universal time and construct 'observation time' object
 lct = lct.astimezone(pytz.timezone(time_zone))
 ut = lct.astimezone(pytz.timezone('UTC'))
 ut64 = np.datetime64(ut)
 observation_time = Time(ut64, scale = 'utc', format = 'datetime64')
-observation_time = observation_time + np.linspace(-2, 2, 5)*u.h
+timeseries_array_no_units =  np.linspace(0, 9, 10)
+timeseries_array = timeseries_array_no_units * u.h
+observation_time = observation_time + timeseries_array
+observation_times_print = []
+for i, point in enumerate(timeseries_array_no_units):
+    observation_times_print.append(lct + dt.timedelta(hours = timeseries_array_no_units[i]))
 
-# get fixed targets
+# Get fixed targets
 deneb = FixedTarget.from_name('Deneb')
 vega = FixedTarget.from_name('Vega')
 polaris = FixedTarget.from_name('Polaris')
 
-# define coordinates for saturn, jupiter
+# Define coordinates for saturn, jupiter
 saturn_ra = cc.hms_to_decimal('21h40m49s')*15
 saturn_dec = cc.degMS_to_degrees('-15deg15m41s')
 saturn_coord = SkyCoord(ra = saturn_ra*u.deg, dec = saturn_dec*u.deg)
@@ -43,20 +53,102 @@ jupiter_dec = cc.degMS_to_degrees('1deg54m13s')
 jupiter_coord = SkyCoord(ra = jupiter_ra*u.deg, dec = jupiter_dec*u.deg)
 jupiter = FixedTarget(jupiter_coord, name = 'Jupiter')
 
-# define plot styles
+# List targets
+target_list = [deneb, vega, polaris, saturn, jupiter]
+
+# Define plot styles
 deneb_style = {'color': 'c'}
 vega_style = {'color': 'b'}
 polaris_style = {'color': 'k'}
 saturn_style = {'color': 'y'}
 jupiter_style = {'color': 'r'}
 
+# Plot object positions
+plt.figure(figsize = (9,5))
 plot_sky(deneb, observer, observation_time, style_kwargs = deneb_style)
 plot_sky(vega, observer, observation_time, style_kwargs = vega_style)
 plot_sky(polaris, observer, observation_time, style_kwargs = polaris_style)
-sat_plot = plot_sky(saturn, observer, observation_time, style_kwargs = saturn_style)
+plot_sky(saturn, observer, observation_time, style_kwargs = saturn_style)
 plot_sky(jupiter, observer, observation_time, style_kwargs = jupiter_style)
-
-#Annotate plot with times
-plt.annotate((observation_time[3]-5*u.h).strftime('%H:%M'), (.74*np.pi, 85))
 plt.legend(loc='center left', bbox_to_anchor=(1.25, 0.5))
+
+# Annotate saturn plot with times
+for i, timepoint in enumerate(observation_time):
+    altitude = (91 * u.deg - observer.altaz(timepoint, saturn).alt) * (1/u.deg) # Easier to modify altitude than invert r-axis
+    azimuth = observer.altaz(timepoint, saturn).az * (1/u.deg) * (np.pi/180.0)
+    plt.annotate(observation_times_print[i].strftime('%H:%M'), (azimuth, altitude), \
+        xytext = (azimuth, altitude+10), horizontalalignment = 'left', fontsize=6)
+
+# Create table that shows data being displayed on chart
+cel_data = []
+for i, cel_obj in enumerate(target_list):
+    for i, timepoint in enumerate(observation_time):
+        for altaz in ['altitude', 'azimuth']:
+            datetime_obj = timepoint.to_datetime(pytz.timezone('US/Eastern'))
+            date_str = datetime_obj.strftime('%m/%d/%Y')
+            time_str = datetime_obj.strftime('%H:%M')
+            if altaz == 'altitude':
+                line_data = [cel_obj.name, date_str, time_str, 'Altitude',\
+                    observer.altaz(timepoint, cel_obj).alt.value]
+            else:
+                line_data = [cel_obj.name, date_str, time_str, 'Azimuth',\
+                    observer.altaz(timepoint, cel_obj).az.value]
+            cel_data.append(line_data)
+
+# Create data frame with pivot-like index for object and alt/az
+df = pd.DataFrame(data = cel_data, \
+    columns = ['Object', 'Date', 'Time', 'Alt/Az', 'Angle'])
+df_pivot = pd.pivot_table(df, columns = ['Date', 'Time'], index = ['Object', 'Alt/Az'], aggfunc = 'sum')
+cell_text = df_pivot.to_numpy(copy=True)
+cell_text = np.around(cell_text, 2)
+col_labels = df_pivot.columns.get_level_values('Date').values + '\n'+ df_pivot.columns.get_level_values('Time')
+row_labels = []
+for i, obj in enumerate(df_pivot.index.get_level_values('Object').values):
+    if df_pivot.index.get_level_values('Alt/Az').values[i] == 'Altitude':
+        row_labels.append(obj + ' ' + 'Altitude')
+    else:
+        row_labels.append('Azimuth')
+
+# Plot and style table
+fig2, ax = plt.subplots()
+ax.set_title('Targets alt/az coordinates', y = .8)
+fig2.patch.set_visible(False)
+fig2.set_figheight(5)
+fig2.set_figwidth(10)
+tbl = plt.table(cellText = cell_text, rowLabels = row_labels, colLabels = col_labels, \
+    colLoc = 'center', rowLoc = 'right', loc='center')
+for j in range (len(col_labels)):
+    cell = tbl[0, j]
+    cell.set_height(.07)
+
+# Erase lines
+print(tbl.get_celld())
+for cell in tbl.get_celld().values():
+    cell.set_edgecolor('w')
+    cell.set_linewidth(0)
+
+# Set colors
+for c in range(-1, len(col_labels)):
+    for r in [1, 2, 5, 6, 9, 10]:
+        cell = tbl[(r,c)]
+        cell.set_facecolor('#ACC3C1')
+    for r in [3, 4, 7, 8]:
+        cell = tbl[(r,c)]
+        cell.set_facecolor('w')
+    
+# Set font styles
+for r in range(1,11):
+    cell = tbl[(r, -1)]
+    cell.set_text_props(fontproperties = FontProperties(weight='bold'))
+for c in range(len(col_labels)):
+    cell = tbl[(0, c)]
+    cell.set_text_props(fontproperties = FontProperties(weight='bold'))
+
+ax.axis('off')
+tbl.auto_set_font_size(value = False)
+tbl.set_fontsize(8)
+tbl.auto_set_column_width(col = range(0, 10))
+fig2.tight_layout()
+
 plt.show()
+    
