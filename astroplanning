@@ -1,7 +1,6 @@
 #!Python 3
 # astroplanning - learning to use the astroplan module
 
-from colorsys import TWO_THIRD
 import numpy as np
 from astroplan.plots import plot_sky
 from astroplan import Observer
@@ -43,13 +42,13 @@ vega = FixedTarget.from_name('Vega')
 polaris = FixedTarget.from_name('Polaris')
 
 # Define coordinates for saturn, jupiter
-saturn_ra = cc.hms_to_decimal('21h40m49s')*15
-saturn_dec = cc.degMS_to_degrees('-15deg15m41s')
+saturn_ra = cc.hms_to_decimal('21h33m36s')*15
+saturn_dec = cc.degMS_to_degrees('-15deg53m00s')
 saturn_coord = SkyCoord(ra = saturn_ra*u.deg, dec = saturn_dec*u.deg)
 saturn = FixedTarget(saturn_coord, name = 'Saturn')
 
-jupiter_ra = cc.hms_to_decimal('00h32m33s')*15
-jupiter_dec = cc.degMS_to_degrees('1deg54m13s')
+jupiter_ra = cc.hms_to_decimal('00h27m21s')*15
+jupiter_dec = cc.degMS_to_degrees('1deg14m22s')
 jupiter_coord = SkyCoord(ra = jupiter_ra*u.deg, dec = jupiter_dec*u.deg)
 jupiter = FixedTarget(jupiter_coord, name = 'Jupiter')
 
@@ -121,8 +120,7 @@ for j in range (len(col_labels)):
     cell = tbl[0, j]
     cell.set_height(.07)
 
-# Erase lines
-print(tbl.get_celld())
+# Erase cell lines
 for cell in tbl.get_celld().values():
     cell.set_edgecolor('w')
     cell.set_linewidth(0)
